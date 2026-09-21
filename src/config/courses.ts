@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import YAML from "yaml";
 
 export type Course = { name: string; path: string };
-export type CourseConfig = { courses: Record<string, Course> };
+export type CourseConfig = { courses: Record<string, Course>; universityRoot: string; audioDirectory: string };
 
 export function defaultConfigPath(): string {
   return path.join(process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), ".config"), "lecture", "config.yaml");
@@ -37,7 +37,11 @@ export async function loadCourseConfig(filePath = process.env.LECTURE_CONFIG_FIL
     }
     courses[alias] = { name: (value as Course).name, path: expandHome((value as Course).path) };
   }
-  return { courses };
+  const document = parsed as Record<string, unknown>;
+  const universityRoot = typeof document.universityRoot === "string" ? expandHome(document.universityRoot) : path.join(os.homedir(), "Documents", "University");
+  const audioDirectory = typeof document.audioDirectory === "string" && document.audioDirectory.trim() ? document.audioDirectory : "_audio";
+  if (path.isAbsolute(audioDirectory) || audioDirectory.split(path.sep).includes("..")) throw new Error("Invalid audioDirectory: it must be a relative directory inside universityRoot.");
+  return { courses, universityRoot, audioDirectory };
 }
 
 export function resolveCourse(config: CourseConfig, alias: string): Course {

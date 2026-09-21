@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-export const DEFAULT_MODEL = "google/gemini-2.5-flash";
+export const DEFAULT_MODEL = "openai/whisper-large-v3-turbo";
 const endpoint = "https://openrouter.ai/api/v1/chat/completions";
 
 export type TranscriptionResult = { text: string; model: string; cost?: number };
