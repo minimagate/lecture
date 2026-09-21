@@ -4,6 +4,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { parseResponse, transcribeAudio } from "../src/transcription/openrouter.js";
+import { parseTeachingResponse } from "../src/teaching/openrouter.js";
 
 test("parses transcript and optional usage cost from OpenRouter", () => {
   const result = parseResponse({ model: "provider/model", choices: [{ message: { content: "  Oggi iniziamo.  " } }], usage: { cost: 0.0123 } });
@@ -13,6 +14,11 @@ test("parses transcript and optional usage cost from OpenRouter", () => {
 test("rejects malformed or empty OpenRouter responses", () => {
   assert.throws(() => parseResponse({ choices: [] }), /no transcript text/);
   assert.throws(() => parseResponse({ choices: [{ message: { content: null } }] }), /no transcript text/);
+});
+
+test("normalizes common non-Obsidian math wrappers in teaching notes", () => {
+  const result = parseTeachingResponse({ choices: [{ message: { content: "```markdown\n# Limiti\n\n\\(a_n \\to L\\)\n\n```math\n\\lim_{n\\to\\infty} a_n = L\n```\n```" } }] });
+  assert.equal(result.body, "# Limiti\n\n$a_n \\to L$\n\n$$\n\\lim_{n\\to\\infty} a_n = L\n$$");
 });
 
 test("sends Whisper audio to the transcription endpoint as multipart form data", async () => {

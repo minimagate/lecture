@@ -2,11 +2,20 @@ const endpoint = "https://openrouter.ai/api/v1/chat/completions";
 
 export type TeachingResult = { body: string; cost?: number };
 
+export function normalizeTeachingNote(body: string): string {
+  let normalized = body.trim();
+  const wrapped = /^```(?:markdown|md)?\s*\r?\n([\s\S]*?)\r?\n```\s*$/i.exec(normalized);
+  if (wrapped) normalized = wrapped[1].trim();
+  normalized = normalized.replace(/```(?:latex|math)\s*\r?\n([\s\S]*?)\r?\n```/gi, (_, equation: string) => `$$\n${equation.trim()}\n$$`);
+  normalized = normalized.replace(/\\\[([\s\S]*?)\\\]/g, (_, equation: string) => `$$\n${equation.trim()}\n$$`);
+  return normalized.replace(/\\\(([\s\S]*?)\\\)/g, (_, equation: string) => `$${equation.trim()}$`);
+}
+
 export function parseTeachingResponse(payload: unknown): TeachingResult {
   const response = payload as { choices?: Array<{ message?: { content?: unknown } }>; usage?: { cost?: unknown } };
   const content = response?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim()) throw new Error("OpenRouter returned no teaching note.");
-  return { body: content.trim(), cost: typeof response.usage?.cost === "number" ? response.usage.cost : undefined };
+  return { body: normalizeTeachingNote(content), cost: typeof response.usage?.cost === "number" ? response.usage.cost : undefined };
 }
 
 export async function generateTeachingNote(prompt: string, model: string, apiKey: string): Promise<TeachingResult> {
