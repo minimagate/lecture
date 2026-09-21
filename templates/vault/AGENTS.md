@@ -14,12 +14,19 @@ This is a university study workspace managed partly by the `lecture` CLI. Help t
 - Intentionally flexible: there is no required taxonomy.
 - Preserve the organization already present; do not reorganize broadly unless asked.
 
+### `Notes/<Course>/Lectures/`
+
+- Lecture-generated structured study notes derived from `_transcripts/`.
+- They are curated study material and may later contain manual edits; do not overwrite them casually.
+- Their `source_transcript` and `source_hash` frontmatter identify the source and generation state.
+
 ### `_transcripts/`
 
 - Generated lecture corpus, primarily read-only.
 - Each Markdown file represents one processed lecture.
 - YAML frontmatter stores `type`, `course`, `date`, `title`, `summary`, `source_audio`, `duration_seconds`, `transcription_model`, `metadata_model`, `metadata_status`, and `transcribed_at`.
 - The body contains the raw ASR result under `## Transcript`.
+- Transcripts are source evidence; generated lecture notes do not replace them when exact wording matters.
 - Read freely, but do not rewrite transcript text or metadata as part of unrelated work. Never silently correct it.
 
 ### `_audio/`

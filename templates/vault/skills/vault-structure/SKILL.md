@@ -21,7 +21,7 @@ _transcripts/Analisi I/
 _audio/Analisi I/
 ```
 
-`Notes/` may contain any organization the user finds useful. Do not assume one note per lecture or create a taxonomy without a reason. The transcript and audio trees are managed by the CLI.
+`Notes/` may contain any organization the user finds useful. Lecture-generated notes specifically use `Notes/<Course>/Lectures/`; other Notes remain user- or agent-authored. Do not reorganize existing files. The transcript and audio trees are managed by the CLI.
 
 ## Transcript files
 

@@ -5,9 +5,9 @@ This vault is my local university workspace.
 
 ## Structure
 
-- `Notes/` contains my notes and study material.
-- `_transcripts/` contains generated lecture transcripts.
-- `_audio/` contains the original lecture recordings.
+- `Notes/` contains my notes and study material; `Notes/<Course>/Lectures/` is reserved for generated structured lecture notes.
+- `_transcripts/` contains machine transcriptions and is the source corpus.
+- `_audio/` contains the original lecture recordings and is immutable.
 
 Each course normally appears in all three places. For example:
 
@@ -23,21 +23,22 @@ _audio/Analisi I/
 2. Export the recording into `_audio/<Course>/`.
 3. Run `lecture transcribe` from a terminal.
 4. Lecture transcribes the recording and writes it under `_transcripts/<Course>/`.
-5. Open the transcript in Obsidian and use it as reference when making notes.
+5. Run `lecture teach` to create detailed study notes, then study them in Obsidian.
 
 Add a course once with `lecture course add "Course Name"`. This creates its three folders and a `Transcriptions.base` view at the root of `_transcripts/<Course>/`.
 
 ## Notes
 
-`Notes/` has no required structure. Organize it by lecture, topic, chapter, theorem, exercise, or whatever remains useful. Transcripts are source material, not finished notes.
+`Notes/` has no required structure for user-authored material. Lecture-generated notes live in `Notes/<Course>/Lectures/`, may later contain manual edits, and should not be overwritten casually. Transcripts remain source material.
 
 ## Useful commands
 
 ```text
 lecture transcribe
+lecture teach
 lecture status
 lecture course add "Course Name"
 lecture courses
 ```
 
-Lecture uses OpenRouter for transcription and for generating a title and short summary. Its API key stays outside this vault.
+Lecture uses OpenRouter for transcription, metadata, and detailed teaching notes. Its API key stays outside this vault.

@@ -6,11 +6,13 @@ export type AppConfig = {
   vaultRoot: string;
   transcriptionModel: string;
   metadataModel: string;
+  teachingModel?: string;
   language: string;
 };
 
 export const DEFAULT_TRANSCRIPTION_MODEL = "openai/whisper-large-v3-turbo";
 export const DEFAULT_METADATA_MODEL = "openai/gpt-5.6-luna";
+export const DEFAULT_TEACHING_MODEL = "openai/gpt-5.6-luna";
 
 export function expandHome(value: string): string {
   return value === "~" ? os.homedir() : value.startsWith("~/") ? path.join(os.homedir(), value.slice(2)) : value;
@@ -28,7 +30,7 @@ export function appConfigPath(): string {
 }
 
 export function makeAppConfig(vaultRoot: string): AppConfig {
-  return { vaultRoot: path.resolve(expandHome(vaultRoot)), transcriptionModel: DEFAULT_TRANSCRIPTION_MODEL, metadataModel: DEFAULT_METADATA_MODEL, language: "it" };
+  return { vaultRoot: path.resolve(expandHome(vaultRoot)), transcriptionModel: DEFAULT_TRANSCRIPTION_MODEL, metadataModel: DEFAULT_METADATA_MODEL, teachingModel: DEFAULT_TEACHING_MODEL, language: "it" };
 }
 
 export async function loadAppConfig(): Promise<AppConfig> {
@@ -42,7 +44,7 @@ export async function loadAppConfig(): Promise<AppConfig> {
   if (!parsed || typeof parsed !== "object" || typeof (parsed as Record<string, unknown>).vaultRoot !== "string") throw new Error(`Invalid Lecture configuration at ${appConfigPath()}. Run lecture setup again only after checking your existing config.`);
   const value = parsed as Partial<AppConfig>;
   const vaultRoot = typeof value.vaultRoot === "string" ? value.vaultRoot : "";
-  return { vaultRoot: path.resolve(expandHome(vaultRoot)), transcriptionModel: value.transcriptionModel ?? DEFAULT_TRANSCRIPTION_MODEL, metadataModel: value.metadataModel ?? DEFAULT_METADATA_MODEL, language: value.language ?? "it" };
+  return { vaultRoot: path.resolve(expandHome(vaultRoot)), transcriptionModel: value.transcriptionModel ?? DEFAULT_TRANSCRIPTION_MODEL, metadataModel: value.metadataModel ?? DEFAULT_METADATA_MODEL, teachingModel: value.teachingModel ?? DEFAULT_TEACHING_MODEL, language: value.language ?? "it" };
 }
 
 export async function saveAppConfig(config: AppConfig): Promise<void> {

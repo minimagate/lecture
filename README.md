@@ -1,6 +1,6 @@
 # Lecture
 
-Lecture is a local-first CLI for turning Voice Memos recordings into an Obsidian university study workspace. The filesystem is the source of truth: audio lives in `_audio`, generated transcripts in `_transcripts`, and your own notes in `Notes`.
+Lecture is a local-first CLI for turning Voice Memos recordings into an Obsidian university study workspace. The filesystem is the source of truth: original audio lives in `_audio`, machine transcripts in `_transcripts`, generated lecture notes in `Notes/<Course>/Lectures`, and other notes in `Notes` remain yours.
 
 ## Install
 
@@ -48,6 +48,8 @@ lecture transcribe
 
 Lecture discovers pending audio, transcribes it in Italian through OpenRouter, handles long recordings with the existing FFmpeg chunker, generates one Italian title and summary call, and writes a Markdown transcript under `_transcripts/<Course>/`.
 
+Then run `lecture teach` to turn completed transcripts into detailed structured study notes under `Notes/<Course>/Lectures/`. It never modifies the source transcript or audio.
+
 Example:
 
 ```text
@@ -63,6 +65,8 @@ If metadata generation fails, the transcript is still saved with a deterministic
 
 ```bash
 lecture transcribe              # process pending metadata and audio
+lecture teach                   # create detailed notes from completed transcripts
+lecture teach --dry-run         # show pending teaching work without API calls
 lecture transcribe --dry-run    # show work without API calls or file changes
 lecture setup
 lecture course add "Geometria"
@@ -80,6 +84,7 @@ The defaults are:
 ```text
 Transcription: openai/whisper-large-v3-turbo
 Metadata:      openai/gpt-5.6-luna
+Teaching:      openai/gpt-5.6-luna
 Language:      it
 ```
 

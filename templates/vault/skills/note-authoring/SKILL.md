@@ -5,7 +5,7 @@ Write notes for later study, not a transcript with its filler removed. Prefer co
 
 ## Placement
 
-Use an exact path supplied by the user. Otherwise follow a clear organization already present in `Notes/<Course>/`. If there is no clear organization, place the note directly under `Notes/<Course>/` with a descriptive filename. Do not create a new folder taxonomy for one note.
+Use an exact path supplied by the user. Lecture-generated notes belong in `Notes/<Course>/Lectures/`; otherwise follow a clear organization already present in `Notes/<Course>/`. Do not overwrite a generated lecture note casually because it may contain manual edits.
 
 Before creating a note, inspect likely existing files and improve a relevant note when that is better than making a duplicate. Do not merge unrelated topics just to reduce the file count.
 
