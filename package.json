@@ -1,0 +1,26 @@
+{
+  "name": "lecture-transcribe",
+  "version": "1.0.0",
+  "description": "A small macOS-first CLI for transcribing university lectures.",
+  "type": "module",
+  "bin": {
+    "lecture": "dist/src/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "tsx --test test/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
