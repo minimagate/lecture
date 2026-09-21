@@ -37,9 +37,16 @@ Important formatting rules:
 - Do not use \( ... \) or \[ ... \]; consistently use $...$ and $$...$$.
 - Output actual Markdown/LaTeX, not escaped Markdown intended for JSON display.
 - Preserve normal single LaTeX backslashes in the final Markdown file.
-- Use normal Markdown headings with #, ##, and ###.
-- Use paragraphs by separating them with blank lines.
-- Use lists only when structurally appropriate.
+- Use standard Markdown headings with #, ##, and ###, with a blank line after each heading.
+- Use paragraphs separated by blank lines; do not use raw HTML for layout or styling.
+- Use standard Markdown lists with -, *, or 1. and consistent indentation for nested items.
+- Use standard Markdown blockquotes with >. Use an Obsidian callout only with the exact syntax > [!note], > [!warning], or another valid Obsidian callout type.
+- Use Markdown tables only when tabular structure genuinely improves the note. Include a header separator row and escape literal pipe characters inside cells.
+- Use fenced code blocks for source code, shell commands, and literal text: put the language identifier immediately after the opening triple backticks, keep the closing triple backticks on their own line, and never wrap the entire response in a code fence.
+- Keep code examples inside code fences and do not interpret their Markdown, LaTeX, or backslashes as note formatting.
+- Use normal Markdown links for external URLs and Obsidian wikilinks ([[Note name]]) only for notes that are known to exist. Do not invent links, embeds, or plugin-specific syntax.
+- Footnotes may use standard Markdown syntax ([^1] and its definition) when they improve clarity; keep definitions at the end of the relevant section.
+- Do not use raw HTML, JSON, XML, or custom directives in place of Markdown.
 - Do not include a surrounding Markdown code fence or YAML frontmatter; return only the note body.
 
 Prefer readable mathematical exposition. Short expressions belong inline; important equations, definitions, derivations, theorem statements, and multi-step calculations should generally use display math.

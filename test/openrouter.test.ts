@@ -21,6 +21,11 @@ test("normalizes common non-Obsidian math wrappers in teaching notes", () => {
   assert.equal(result.body, "# Limiti\n\n$a_n \\to L$\n\n$$\n\\lim_{n\\to\\infty} a_n = L\n$$");
 });
 
+test("does not rewrite math-looking text inside code and closes an unclosed fence", () => {
+  const code = parseTeachingResponse({ choices: [{ message: { content: "## Esempio\n\n```python\nvalue = r'\\(not math\\)'" } }] });
+  assert.equal(code.body, "## Esempio\n\n```python\nvalue = r'\\(not math\\)'\n```");
+});
+
 test("sends Whisper audio to the transcription endpoint as multipart form data", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "lecture-openrouter-"));
   const audioPath = path.join(directory, "lecture.m4a");

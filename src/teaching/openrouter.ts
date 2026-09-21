@@ -2,13 +2,63 @@ const endpoint = "https://openrouter.ai/api/v1/chat/completions";
 
 export type TeachingResult = { body: string; cost?: number };
 
+function normalizeMathOutsideCode(markdown: string): string {
+  const lines = markdown.split(/\r?\n/);
+  const output: string[] = [];
+  const prose: string[] = [];
+  const flushProse = () => {
+    if (!prose.length) return;
+    output.push(prose.join("\n").replace(/\\\[([\s\S]*?)\\\]/g, (_, equation: string) => `$$\n${equation.trim()}\n$$`).replace(/\\\(([\s\S]*?)\\\)/g, (_, equation: string) => `$${equation.trim()}$`));
+    prose.length = 0;
+  };
+
+  for (let index = 0; index < lines.length; index++) {
+    const opening = /^([ \t]*)(`{3,}|~{3,})(.*)$/.exec(lines[index]);
+    if (!opening) {
+      prose.push(lines[index]);
+      continue;
+    }
+
+    const indentation = opening[1];
+    const fence = opening[2][0];
+    const fenceLength = opening[2].length;
+    const info = opening[3].trim().toLowerCase();
+    const closingPattern = new RegExp(`^[ \\t]*${fence}{${fenceLength},}[ \\t]*$`);
+    let closing = -1;
+    for (let candidate = index + 1; candidate < lines.length; candidate++) {
+      if (closingPattern.test(lines[candidate])) {
+        closing = candidate;
+        break;
+      }
+    }
+
+    if ((info === "math" || info === "latex") && closing !== -1) {
+      flushProse();
+      const equation = lines.slice(index + 1, closing).join("\n").trim();
+      output.push("$$", equation, "$$");
+      index = closing;
+      continue;
+    }
+
+    flushProse();
+    output.push(lines[index]);
+    if (closing === -1) {
+      output.push(...lines.slice(index + 1), `${indentation}${fence.repeat(fenceLength)}`);
+      break;
+    }
+    output.push(...lines.slice(index + 1, closing + 1));
+    index = closing;
+  }
+
+  flushProse();
+  return output.join("\n");
+}
+
 export function normalizeTeachingNote(body: string): string {
   let normalized = body.trim();
   const wrapped = /^```(?:markdown|md)?\s*\r?\n([\s\S]*?)\r?\n```\s*$/i.exec(normalized);
   if (wrapped) normalized = wrapped[1].trim();
-  normalized = normalized.replace(/```(?:latex|math)\s*\r?\n([\s\S]*?)\r?\n```/gi, (_, equation: string) => `$$\n${equation.trim()}\n$$`);
-  normalized = normalized.replace(/\\\[([\s\S]*?)\\\]/g, (_, equation: string) => `$$\n${equation.trim()}\n$$`);
-  return normalized.replace(/\\\(([\s\S]*?)\\\)/g, (_, equation: string) => `$${equation.trim()}$`);
+  return normalizeMathOutsideCode(normalized).trim();
 }
 
 export function parseTeachingResponse(payload: unknown): TeachingResult {

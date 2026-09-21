@@ -6,7 +6,7 @@ import { fallbackTitle } from "../markdown/transcript.js";
 import { writeAtomic, sanitizeFilename } from "../files/output.js";
 import { DEFAULT_TEACHING_MODEL, type AppConfig } from "../config/app-config.js";
 import { teachingPrompt } from "./prompt.js";
-import { generateTeachingNote, type TeachingResult } from "./openrouter.js";
+import { generateTeachingNote, normalizeTeachingNote, type TeachingResult } from "./openrouter.js";
 import { sourceHash } from "./hash.js";
 
 export type TeachingCandidate = { transcript: TranscriptRecord; source: string; hash: string; notePath?: string; stale: boolean };
@@ -61,7 +61,7 @@ function notePath(config: AppConfig, candidate: TeachingCandidate): string {
 
 function renderNote(candidate: TeachingCandidate, model: string, result: TeachingResult): string {
   const frontmatter: Frontmatter = { type: "lecture-note", course: candidate.transcript.frontmatter.course, date: candidate.transcript.frontmatter.date, title: candidate.transcript.frontmatter.title, source_transcript: candidate.source, source_hash: candidate.hash, teaching_model: model, taught_at: new Date().toISOString() };
-  return stringifyFrontmatter(frontmatter, result.body);
+  return stringifyFrontmatter(frontmatter, normalizeTeachingNote(result.body));
 }
 
 export async function teachTranscripts(config: AppConfig, options: { apiKey: string; force?: boolean; course?: string; generate?: typeof generateTeachingNote; onStart?: (candidate: TeachingCandidate, index: number, total: number) => void }): Promise<{ created: number; failed: TeachingCandidate[]; report: TeachingReport; costs: number; costAvailable: boolean }> {
