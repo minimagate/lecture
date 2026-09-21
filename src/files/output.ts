@@ -1,7 +1,7 @@
 import path from "node:path";
 import { access, mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 
-const supportedExtensions = new Set([".m4a", ".mp3", ".wav", ".aac", ".aiff", ".ogg", ".flac"]);
+const supportedExtensions = new Set([".m4a", ".mp3", ".wav", ".aac", ".aiff", ".ogg", ".flac", ".mp4", ".webm"]);
 
 export function validateAudioPath(filePath: string): string {
   const extension = path.extname(filePath).toLowerCase();

@@ -1,8 +1,8 @@
-# lecture
+# Lecture
 
-`lecture` is a small local macOS-first CLI for sending university lecture recordings to OpenRouter and saving the returned Italian transcript as Markdown.
+Lecture is a local-first CLI for turning Voice Memos recordings into an Obsidian university study workspace. The filesystem is the source of truth: audio lives in `_audio`, generated transcripts in `_transcripts`, and your own notes in `Notes`.
 
-## Installation
+## Install
 
 Requires Node.js 20 or newer.
 
@@ -12,80 +12,79 @@ npm run build
 npm link
 ```
 
-For development, use `npm run dev -- transcribe ...`. The global command is then `lecture ...`.
-
-## API key
+Set the OpenRouter key in your shell environment:
 
 ```bash
-export OPENROUTER_API_KEY="your-key"
+export OPENROUTER_API_KEY="..."
 ```
 
-To make it persistent in the default macOS zsh shell, add that line to `~/.zshrc`, then open a new terminal or run `source ~/.zshrc`. Never put the key in course configuration or Markdown output.
-
-The integration uses OpenRouter's current `/api/v1/chat/completions` audio input API: audio is sent as base64 `input_audio` content. The default model is `openai/whisper-large-v3-turbo`; change it with `--model`. Audio limits and exact format support are ultimately model/provider dependent, as documented by OpenRouter.
-
-## Configuration
-
-Create `~/.config/lecture/config.yaml`:
-
-```yaml
-universityRoot: "~/Documents/University"
-audioDirectory: "_audio"
-
-courses:
-  analisi:
-    name: "Analisi I"
-    path: "~/Documents/University/Analisi I"
-  algebra:
-    name: "Algebra"
-    path: "~/Documents/University/Algebra"
-```
-
-`LECTURE_CONFIG_FILE` can override the config location, which is useful for testing or a second setup. Inspect configured courses with:
-
-```bash
-lecture courses
-```
-
-Put exported recordings in the mirrored raw-audio tree and synchronize them without naming individual files:
-
-```bash
-mkdir -p "~/Documents/University/_audio/Analisi I"
-lecture sync --dry-run
-lecture sync
-```
-
-For example, `_audio/Analisi I/2026-09-21 - Limiti.m4a` becomes `Analisi I/2026-09-21 - Limiti.md`. Existing Markdown files are skipped. Use `lecture sync --force` only when you explicitly want to replace existing transcripts.
-
-## Usage
-
-```bash
-lecture transcribe ~/Downloads/Recording.m4a \
-  --course analisi \
-  --title "Limiti di successioni"
-```
-
-Options include `--date YYYY-MM-DD`, `--model provider/model-name`, `--output /another/directory`, and `--language Italian`. If `--title` is omitted, the source filename becomes the title. Supported input formats are `.m4a`, `.mp3`, `.wav`, `.aac`, `.aiff`, `.ogg`, and `.flac`.
-
-The output is saved under the configured course directory as:
-
-```text
-~/Documents/University/Analisi I/2026-09-21 - Limiti di successioni.md
-```
-
-Existing output files are never overwritten. The file is written atomically, so an API or filesystem failure does not leave a successful-looking transcript behind.
-
-Long recordings are measured with `ffprobe` and split into sequential 20-minute chunks with a 3-second overlap only when needed. Chunks are created in a temporary directory, sent sequentially, combined in order, and removed on success or failure. Install FFmpeg on macOS if a long recording needs splitting:
+On macOS, add that line to `~/.zshrc` if it should be available in new terminals. Install FFmpeg for long recordings:
 
 ```bash
 brew install ffmpeg
 ```
 
-## Development
+## First setup
 
 ```bash
-npm run typecheck
-npm test
-npm run build
-node dist/src/index.js --help
+lecture setup
+lecture course add "Analisi I"
+lecture course add "Algebra"
 ```
+
+The default vault is `~/Documents/University`. A different vault can be selected with `lecture setup --path /path/to/University`. Open the resulting `University` folder directly in Obsidian.
+
+Setup creates `Notes/`, `_transcripts/`, `_audio/`, `.obsidian/`, `.agents/`, and `AGENTS.md` without overwriting existing user files. It also enables the core Bases plugin and hides agent support files from normal Obsidian file views using the vault's standard settings. Adding a course places its `Transcriptions.base` view at the root of `_transcripts/<Course>/`.
+
+## Daily workflow
+
+1. Record a lecture with Apple Voice Memos.
+2. Export it into `_audio/<Course>/`.
+3. Run:
+
+```bash
+lecture transcribe
+```
+
+Lecture discovers pending audio, transcribes it in Italian through OpenRouter, handles long recordings with the existing FFmpeg chunker, generates one Italian title and summary call, and writes a Markdown transcript under `_transcripts/<Course>/`.
+
+Example:
+
+```text
+_audio/Analisi I/Recording 127.m4a
+-> _transcripts/Analisi I/2026-09-21 - Limiti di successioni.md
+```
+
+The transcript contains YAML frontmatter including `source_audio`, `date`, `title`, `summary`, `duration_seconds`, `transcription_model`, `metadata_model`, and `metadata_status`. The complete raw ASR output remains under `## Transcript`.
+
+If metadata generation fails, the transcript is still saved with a deterministic filename and `metadata_status: pending`. The next `lecture` run retries only metadata and never retranscribes that audio.
+
+## Commands
+
+```bash
+lecture transcribe              # process pending metadata and audio
+lecture transcribe --dry-run    # show work without API calls or file changes
+lecture setup
+lecture course add "Geometria"
+lecture courses
+lecture status
+lecture --help
+```
+
+For an advanced one-off transcription, use `lecture transcribe <audio-file>`. The normal workflow is to place audio under `_audio/<Course>/` and run `lecture transcribe`.
+
+## Models
+
+The defaults are:
+
+```text
+Transcription: openai/whisper-large-v3-turbo
+Metadata:      openai/gpt-5.6-luna
+Language:      it
+```
+
+They are stored in the global application configuration, not in the vault and never include API keys. The global config is stored at the platform-appropriate application configuration path, for example `~/Library/Application Support/lecture/config.json` on macOS.
+
+## Agent workspace
+
+The vault includes a concise `AGENTS.md` and three skills under `.agents/skills/`. They explain the immutable audio rule, flexible Notes structure, generated transcript metadata, and how an agent should gather course context without reorganizing the vault.
