@@ -12,10 +12,11 @@ npm run build
 npm link
 ```
 
-Set the OpenRouter key in your shell environment:
+Set the OpenRouter key in your shell environment, or create a `.env` file in the project root (it is ignored by git and loaded by the CLI, including when invoked outside the project directory):
 
 ```bash
 export OPENROUTER_API_KEY="..."
+# Alternatively, put OPENROUTER_API_KEY=... in .env
 ```
 
 On macOS, add that line to `~/.zshrc` if it should be available in new terminals. Install FFmpeg for long recordings:
@@ -84,7 +85,7 @@ The defaults are:
 ```text
 Transcription: openai/whisper-large-v3-turbo
 Metadata:      openai/gpt-5.6-luna
-Teaching:      openai/gpt-5.6-luna
+Teaching:      anthropic/claude-opus-5.5
 Language:      it
 ```
 

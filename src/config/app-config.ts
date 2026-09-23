@@ -12,7 +12,7 @@ export type AppConfig = {
 
 export const DEFAULT_TRANSCRIPTION_MODEL = "openai/whisper-large-v3-turbo";
 export const DEFAULT_METADATA_MODEL = "openai/gpt-5.6-luna";
-export const DEFAULT_TEACHING_MODEL = "openai/gpt-5.6-luna";
+export const DEFAULT_TEACHING_MODEL = "anthropic/claude-opus-5.5";
 
 export function expandHome(value: string): string {
   return value === "~" ? os.homedir() : value.startsWith("~/") ? path.join(os.homedir(), value.slice(2)) : value;

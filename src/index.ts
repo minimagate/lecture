@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+import { config as loadEnv } from "dotenv";
 import path from "node:path";
 import { stat } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { defaultVaultRoot, loadAppConfig, type AppConfig } from "./config/app-config.js";
 import { listCourses } from "./config/courses.js";
 import { countAudio, discoverTranscripts, type RecordingJob } from "./files/discovery.js";
@@ -10,6 +12,9 @@ import { DEFAULT_TEACHING_MODEL, DEFAULT_TRANSCRIPTION_MODEL } from "./config/ap
 import { addCourse, setupVault } from "./vault/setup.js";
 import { enrichTranscript, pendingMetadata, pendingRecordings, processRecording } from "./vault/transcripts.js";
 import { inspectTeaching, teachTranscripts, type TeachingCandidate } from "./teaching/index.js";
+
+const appDirectory = path.dirname(fileURLToPath(import.meta.url));
+loadEnv({ path: [path.resolve(process.cwd(), ".env"), path.resolve(appDirectory, "../.env"), path.resolve(appDirectory, "../../.env")] });
 
 type Args = { command?: string; positionals: string[]; path?: string; model?: string; language?: string; course?: string; force: boolean; dryRun: boolean; help: boolean };
 
@@ -42,9 +47,12 @@ function printHelp(): void {
 
 function progress() {
   return (chunk: { index: number; start: number; end: number }, total: number, duration: number) => {
-    if (chunk.index === 1) console.log(`      ${formatTimestamp(duration)}\n      Splitting into ${total} chunks...`);
     console.log(`      [${chunk.index}/${total}] ${formatTimestamp(chunk.start)}-${formatTimestamp(chunk.end)} ✓`);
   };
+}
+
+function logTranscriptionProgress(message: string): void {
+  console.log(`      ${message}`);
 }
 
 async function runStatus(config: AppConfig): Promise<void> {
@@ -111,10 +119,10 @@ async function runWorkspace(config: AppConfig, args: Args): Promise<void> {
     for (const [index, job] of recordings.entries()) {
       console.log(`[${index + 1}/${recordings.length}] ${job.relativePath}\n      Transcribing...`);
       try {
-        const result = await processRecording({ ...job, sourceAudio: job.sourceAudio, stem: job.stem, date: job.date }, { ...config, transcriptionModel: args.model ?? config.transcriptionModel, language: args.language ?? config.language }, apiKey!, { onChunkComplete: progress() });
+        const result = await processRecording({ ...job, sourceAudio: job.sourceAudio, stem: job.stem, date: job.date }, { ...config, transcriptionModel: args.model ?? config.transcriptionModel, language: args.language ?? config.language }, apiKey!, { onChunkComplete: progress(), onProgress: logTranscriptionProgress });
         if (result.transcriptionCost === undefined || result.metadataCost === undefined) costAvailable = false; else totalCost += result.transcriptionCost + result.metadataCost;
         transcribed++;
-        console.log(`      Generating title and summary...\n      ✓ ${path.relative(config.vaultRoot, result.transcriptPath)}${result.metadataPending ? " (metadata pending)" : ""}`);
+        console.log(`      ✓ ${path.relative(config.vaultRoot, result.transcriptPath)}${result.metadataPending ? " (metadata pending)" : ""}`);
       } catch (error) { failed++; console.error(`      ✗ ${error instanceof Error ? error.message : String(error)}`); }
     }
   }
@@ -133,7 +141,7 @@ async function runManualTranscription(args: Args, config: AppConfig): Promise<vo
   const job: RecordingJob = { audioPath: absolute, sourceAudio: relative && !relative.startsWith("..") ? relative.replaceAll(path.sep, "/") : `_audio/${course}/${path.basename(file)}`, relativePath: relative, course, stem: path.basename(file, path.extname(file)), birthtimeMs: details.birthtimeMs, mtimeMs: details.mtimeMs };
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error("OPENROUTER_API_KEY is not configured.");
-  const result = await processRecording(job, { ...config, transcriptionModel: args.model ?? config.transcriptionModel, language: args.language ?? config.language }, apiKey, { onChunkComplete: progress() });
+  const result = await processRecording(job, { ...config, transcriptionModel: args.model ?? config.transcriptionModel, language: args.language ?? config.language }, apiKey, { onChunkComplete: progress(), onProgress: logTranscriptionProgress });
   console.log(`✓ Saved ${result.transcriptPath}`);
 }
 

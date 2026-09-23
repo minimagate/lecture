@@ -5,11 +5,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createAudioChunks, planChunks, shouldChunkAudio } from "../src/audio/chunk.js";
 import { transcribeWithChunking } from "../src/transcription/chunked.js";
+import { OpenRouterRequestError } from "../src/transcription/openrouter.js";
 import type { AudioChunk } from "../src/audio/chunk.js";
 
 test("short recordings bypass chunking and long recordings use the centralized threshold", () => {
-  assert.equal(shouldChunkAudio(1200), false);
-  assert.equal(shouldChunkAudio(1201), true);
+  assert.equal(shouldChunkAudio(300), false);
+  assert.equal(shouldChunkAudio(301), true);
 });
 
 test("plans sequential chunks with overlap and a bounded final chunk", () => {
@@ -63,6 +64,7 @@ test("transcribes short files through the existing single-file path", async () =
 test("transcribes chunks sequentially, preserves order, and aggregates cost", async () => {
   const calls: string[] = [];
   const completed: number[] = [];
+  const progress: string[] = [];
   const chunks = [chunk(1, 0, 1203), chunk(2, 1200, 2403)];
   let removed = false;
   const result = await transcribeWithChunking("recording.m4a", "m4a", "model", "Italian", "key", {
@@ -71,12 +73,44 @@ test("transcribes chunks sequentially, preserves order, and aggregates cost", as
     removeChunks: async () => { removed = true; },
     transcribe: async (filePath) => { calls.push(filePath); return { text: filePath.includes("1") ? "uno" : "due", model: "model", cost: 0.02 }; },
     onChunkComplete: (item) => completed.push(item.index),
+    onProgress: (message) => progress.push(message),
   });
   assert.deepEqual(calls, ["/tmp/chunk-1.m4a", "/tmp/chunk-2.m4a"]);
   assert.deepEqual(completed, [1, 2]);
   assert.equal(result.text, "uno\n\ndue");
   assert.equal(result.cost, 0.04);
   assert.equal(removed, true);
+  assert.equal(progress.some((message) => message.includes("Sending audio segment")), false);
+});
+
+test("splits a chunk after a 413, retries the smaller chunks, and cleans up each temporary directory", async () => {
+  const calls: string[] = [];
+  const removed: string[] = [];
+  const originalChunks = [
+    { ...chunk(1, 0, 603), path: "/tmp/original-1.m4a" },
+    { ...chunk(2, 600, 601), path: "/tmp/original-2.m4a" },
+  ];
+  const smallerChunks = [
+    { ...chunk(1, 0, 302), path: "/tmp/smaller-1.m4a" },
+    { ...chunk(2, 300, 603), path: "/tmp/smaller-2.m4a" },
+  ];
+  const result = await transcribeWithChunking("recording.m4a", "m4a", "model", "Italian", "key", {
+    getDuration: async () => 603,
+    createChunks: async (_filePath, _format, _duration, options) => options?.chunkDuration
+      ? { chunks: smallerChunks, directory: "/tmp/lecture-smaller-job" }
+      : { chunks: originalChunks, directory: "/tmp/lecture-original-job" },
+    removeChunks: async (directory) => { removed.push(directory); },
+    transcribe: async (filePath) => {
+      calls.push(filePath);
+      if (filePath === originalChunks[0].path) throw new OpenRouterRequestError(413, "Payload Too Large");
+      return { text: filePath.includes("-1.") ? "uno" : "due", model: "model", cost: 0.01 };
+    },
+  });
+
+  assert.deepEqual(calls, [originalChunks[0].path, smallerChunks[0].path, smallerChunks[1].path, originalChunks[1].path]);
+  assert.deepEqual(removed, ["/tmp/lecture-smaller-job", "/tmp/lecture-original-job"]);
+  assert.equal(result.text, "uno\n\ndue\n\ndue");
+  assert.equal(result.cost, 0.03);
 });
 
 test("cleans temporary chunks and fails the whole operation when one chunk fails", async () => {

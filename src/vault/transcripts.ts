@@ -21,16 +21,23 @@ function baseData(job: RecordingJob, config: AppConfig, transcript: string, dura
   return { course: job.course, date: lectureDate(job), title, summary: metadata?.summary ?? "", sourceAudio: job.sourceAudio, durationSeconds: duration, transcriptionModel: config.transcriptionModel, metadataModel: config.metadataModel, metadataStatus, transcribedAt: new Date().toISOString(), transcript };
 }
 
-export async function processRecording(job: RecordingJob, config: AppConfig, apiKey: string, options: { onChunkComplete?: (chunk: { index: number; start: number; end: number }, total: number, duration: number) => void; transcribe?: typeof transcribeWithChunking; generateMetadata?: typeof generateLectureMetadata } = {}): Promise<ProcessResult> {
+export async function processRecording(job: RecordingJob, config: AppConfig, apiKey: string, options: { onChunkComplete?: (chunk: { index: number; start: number; end: number }, total: number, duration: number) => void; onProgress?: (message: string) => void; transcribe?: typeof transcribeWithChunking; generateMetadata?: typeof generateLectureMetadata } = {}): Promise<ProcessResult> {
+  options.onProgress?.("Validating audio file...");
   const format = await validateInputAudio(job.audioPath);
-  const transcription = await (options.transcribe ?? transcribeWithChunking)(job.audioPath, format, config.transcriptionModel, config.language, apiKey, { onChunkComplete: options.onChunkComplete });
+  options.onProgress?.(`Audio format: ${format}.`);
+  const transcription = await (options.transcribe ?? transcribeWithChunking)(job.audioPath, format, config.transcriptionModel, config.language, apiKey, { onChunkComplete: options.onChunkComplete, onProgress: options.onProgress });
   let metadata: LectureMetadata | undefined;
-  try { metadata = await (options.generateMetadata ?? generateLectureMetadata)(transcription.text, job.course, config.metadataModel, apiKey); } catch { /* preserve the successful ASR as pending metadata */ }
+  options.onProgress?.("Transcription complete. Generating title and summary...");
+  try { metadata = await (options.generateMetadata ?? generateLectureMetadata)(transcription.text, job.course, config.metadataModel, apiKey); } catch (error) {
+    options.onProgress?.(`Title and summary generation failed: ${error instanceof Error ? error.message : String(error)}`);
+    /* Preserve the successful ASR as pending metadata. */
+  }
   const title = metadata?.title ? fallbackTitle(metadata.title) : fallbackTitle(job.stem);
   const directory = path.join(config.vaultRoot, "_transcripts", job.course);
   await mkdir(directory, { recursive: true });
   const transcriptPath = await uniqueTranscriptPath(directory, lectureDate(job), title);
   const data = baseData(job, config, transcription.text, transcription.duration, title, metadata, metadata ? "complete" : "pending");
+  options.onProgress?.("Saving transcript...");
   await writeTranscript(transcriptPath, data);
   return { transcriptPath, metadataPending: !metadata, transcriptionCost: transcription.cost, metadataCost: metadata?.cost, duration: transcription.duration, title };
 }

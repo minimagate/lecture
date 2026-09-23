@@ -6,6 +6,13 @@ const endpoint = "https://openrouter.ai/api/v1/audio/transcriptions";
 
 export type TranscriptionResult = { text: string; model: string; cost?: number };
 
+export class OpenRouterRequestError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(`OpenRouter request failed (${status}): ${message}`);
+    this.name = "OpenRouterRequestError";
+  }
+}
+
 export function parseResponse(payload: unknown): TranscriptionResult {
   const response = payload as { choices?: Array<{ message?: { content?: unknown } }>; model?: unknown; usage?: { cost?: unknown } };
   const content = response?.choices?.[0]?.message?.content;
@@ -28,6 +35,7 @@ function parseAudioResponse(payload: unknown): TranscriptionResult {
 }
 
 function mimeType(format: string): string {
+  if (format === "mp3") return "audio/mpeg";
   if (format === "m4a") return "audio/mp4";
   if (format === "aiff") return "audio/aiff";
   if (format === "mp4") return "video/mp4";
@@ -35,10 +43,10 @@ function mimeType(format: string): string {
 }
 
 export async function transcribeAudio(filePath: string, format: string, model: string, language: string, apiKey: string): Promise<TranscriptionResult> {
-  const audio = await readFile(filePath);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30 * 60 * 1000);
   try {
+    const audio = await readFile(filePath);
     const form = new FormData();
     form.append("file", new Blob([audio], { type: mimeType(format) }), path.basename(filePath));
     form.append("model", model);
@@ -53,7 +61,7 @@ export async function transcribeAudio(filePath: string, format: string, model: s
     const payload = await response.json().catch(() => undefined);
     if (!response.ok) {
       const message = payload && typeof payload === "object" && "error" in payload && payload.error && typeof payload.error === "object" && "message" in payload.error ? String(payload.error.message) : response.statusText;
-      throw new Error(`OpenRouter request failed (${response.status}): ${message}`);
+      throw new OpenRouterRequestError(response.status, message);
     }
     return parseAudioResponse(payload);
   } catch (error) {
