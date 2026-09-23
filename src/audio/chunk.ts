@@ -3,7 +3,7 @@ import path from "node:path";
 import { mkdtemp, rm } from "node:fs/promises";
 import { defaultCommandRunner, type CommandRunner, ensureFfmpeg, getAudioDuration } from "./metadata.js";
 
-export const CHUNK_DURATION_SECONDS = 5 * 60;
+export const CHUNK_DURATION_SECONDS = 2 * 60;
 export const CHUNK_OVERLAP_SECONDS = 3;
 export const TRANSCRIPTION_AUDIO_FORMAT = "mp3";
 
