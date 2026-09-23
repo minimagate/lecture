@@ -1,4 +1,4 @@
-import { CHUNK_DURATION_SECONDS, CHUNK_OVERLAP_SECONDS, createAudioChunks, formatTimestamp, getAudioDuration, planChunks, removeAudioChunks, shouldChunkAudio, type AudioChunk } from "../audio/chunk.js";
+import { CHUNK_DURATION_SECONDS, CHUNK_OVERLAP_SECONDS, createAudioChunks, createCompressedAudio, formatTimestamp, getAudioDuration, planChunks, removeAudioChunks, shouldChunkAudio, TRANSCRIPTION_AUDIO_FORMAT, type AudioChunk } from "../audio/chunk.js";
 import type { CommandRunner } from "../audio/metadata.js";
 import { OpenRouterRequestError, transcribeAudio, type TranscriptionResult } from "./openrouter.js";
 
@@ -10,6 +10,7 @@ export type ChunkedTranscriptionOptions = {
   onProgress?: TranscriptionLog;
   getDuration?: typeof getAudioDuration;
   transcribe?: typeof transcribeAudio;
+  createCompressed?: typeof createCompressedAudio;
   createChunks?: typeof createAudioChunks;
   removeChunks?: typeof removeAudioChunks;
 };
@@ -22,7 +23,6 @@ function combineTexts(results: TranscriptionResult[]): string {
 
 async function transcribeChunkWithRetry(
   chunk: AudioChunk,
-  format: string,
   model: string,
   language: string,
   apiKey: string,
@@ -31,7 +31,7 @@ async function transcribeChunkWithRetry(
 ): Promise<TranscriptionResult[]> {
   const transcribe = options.transcribe ?? transcribeAudio;
   try {
-    return [await transcribe(chunk.path, format, model, language, apiKey)];
+    return [await transcribe(chunk.path, TRANSCRIPTION_AUDIO_FORMAT, model, language, apiKey)];
   } catch (error) {
     if (!(error instanceof OpenRouterRequestError) || error.status !== 413 || depth >= 10) throw error;
 
@@ -41,7 +41,7 @@ async function transcribeChunkWithRetry(
     const halfDuration = duration / 2;
     const createChunks = options.createChunks ?? createAudioChunks;
     const removeChunks = options.removeChunks ?? removeAudioChunks;
-    const split = await createChunks(chunk.path, format, duration, {
+    const split = await createChunks(chunk.path, TRANSCRIPTION_AUDIO_FORMAT, duration, {
       commandRunner: options.commandRunner,
       chunkDuration: halfDuration,
       overlap: Math.min(CHUNK_OVERLAP_SECONDS, halfDuration / 2),
@@ -54,7 +54,7 @@ async function transcribeChunkWithRetry(
     const results: TranscriptionResult[] = [];
     try {
       for (const smallerChunk of split.chunks) {
-        results.push(...await transcribeChunkWithRetry(smallerChunk, format, model, language, apiKey, depth + 1, options));
+        results.push(...await transcribeChunkWithRetry(smallerChunk, model, language, apiKey, depth + 1, options));
       }
       return results;
     } finally {
@@ -65,7 +65,7 @@ async function transcribeChunkWithRetry(
 
 export async function transcribeWithChunking(
   filePath: string,
-  format: string,
+  _format: string,
   model: string,
   language: string,
   apiKey: string,
@@ -76,22 +76,28 @@ export async function transcribeWithChunking(
   const duration = await getDuration(filePath, options.commandRunner);
   options.onProgress?.(`Audio duration: ${formatTimestamp(duration)}.`);
   if (!shouldChunkAudio(duration)) {
-    options.onProgress?.("Starting transcription request...");
-    const result = await (options.transcribe ?? transcribeAudio)(filePath, format, model, language, apiKey);
-    return { ...result, duration, chunked: false };
+    options.onProgress?.("Compressing audio for transcription...");
+    const compressed = await (options.createCompressed ?? createCompressedAudio)(filePath, { commandRunner: options.commandRunner });
+    try {
+      options.onProgress?.("Starting transcription request...");
+      const result = await (options.transcribe ?? transcribeAudio)(compressed.path, TRANSCRIPTION_AUDIO_FORMAT, model, language, apiKey);
+      return { ...result, duration, chunked: false };
+    } finally {
+      await (options.removeChunks ?? removeAudioChunks)(compressed.directory);
+    }
   }
 
   const plannedChunks = planChunks(duration, CHUNK_DURATION_SECONDS, CHUNK_OVERLAP_SECONDS);
-  options.onProgress?.(`Splitting long audio into ${plannedChunks.length} chunks...`);
+  options.onProgress?.(`Splitting and compressing long audio into ${plannedChunks.length} chunks...`);
   const createChunks = options.createChunks ?? createAudioChunks;
   const removeChunks = options.removeChunks ?? removeAudioChunks;
-  const { chunks, directory } = await createChunks(filePath, format, duration, { commandRunner: options.commandRunner });
-  options.onProgress?.(`Audio split into ${chunks.length} chunks. Transcribing...`);
+  const { chunks, directory } = await createChunks(filePath, _format, duration, { commandRunner: options.commandRunner });
+  options.onProgress?.(`Audio split into ${chunks.length} compressed chunks. Transcribing...`);
   const results: TranscriptionResult[] = [];
   try {
     for (const chunk of chunks) {
       try {
-        results.push(...await transcribeChunkWithRetry(chunk, format, model, language, apiKey, 0, options));
+        results.push(...await transcribeChunkWithRetry(chunk, model, language, apiKey, 0, options));
       } catch (error) {
         throw new Error(`Chunk ${chunk.index} of ${chunks.length} failed: ${error instanceof Error ? error.message : String(error)}`);
       }

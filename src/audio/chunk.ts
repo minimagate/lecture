@@ -5,6 +5,9 @@ import { defaultCommandRunner, type CommandRunner, ensureFfmpeg, getAudioDuratio
 
 export const CHUNK_DURATION_SECONDS = 5 * 60;
 export const CHUNK_OVERLAP_SECONDS = 3;
+export const TRANSCRIPTION_AUDIO_FORMAT = "mp3";
+
+const compressedAudioArgs = ["-map", "0:a:0", "-vn", "-ac", "1", "-ar", "16000", "-c:a", "libmp3lame", "-b:a", "32k"];
 
 export type AudioChunk = { path: string; index: number; start: number; end: number };
 export type ChunkPlan = { start: number; end: number; index: number };
@@ -34,9 +37,26 @@ export function formatTimestamp(seconds: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
 }
 
+export async function createCompressedAudio(
+  filePath: string,
+  options: { commandRunner?: CommandRunner; tempRoot?: string } = {},
+): Promise<{ path: string; directory: string }> {
+  const commandRunner = options.commandRunner ?? defaultCommandRunner;
+  await ensureFfmpeg(commandRunner);
+  const directory = await mkdtemp(path.join(options.tempRoot ?? os.tmpdir(), "lecture-transcription-"));
+  const outputPath = path.join(directory, "audio.mp3");
+  try {
+    await commandRunner("ffmpeg", ["-hide_banner", "-loglevel", "error", "-i", filePath, ...compressedAudioArgs, "-y", outputPath]);
+    return { path: outputPath, directory };
+  } catch (error) {
+    await rm(directory, { recursive: true, force: true });
+    throw new Error(`Could not compress the recording with FFmpeg: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 export async function createAudioChunks(
   filePath: string,
-  format: string,
+  _format: string,
   duration: number,
   options: { commandRunner?: CommandRunner; chunkDuration?: number; overlap?: number; tempRoot?: string } = {},
 ): Promise<{ chunks: AudioChunk[]; directory: string }> {
@@ -47,14 +67,14 @@ export async function createAudioChunks(
   const chunks: AudioChunk[] = [];
   try {
     for (const plan of plans) {
-      const chunkPath = path.join(directory, `chunk-${String(plan.index).padStart(4, "0")}.${format}`);
-      await commandRunner("ffmpeg", ["-hide_banner", "-loglevel", "error", "-ss", String(plan.start), "-t", String(plan.end - plan.start), "-i", filePath, "-map", "0:a:0", "-vn", "-c", "copy", "-avoid_negative_ts", "make_zero", "-y", chunkPath]);
+      const chunkPath = path.join(directory, `chunk-${String(plan.index).padStart(4, "0")}.${TRANSCRIPTION_AUDIO_FORMAT}`);
+      await commandRunner("ffmpeg", ["-hide_banner", "-loglevel", "error", "-ss", String(plan.start), "-t", String(plan.end - plan.start), "-i", filePath, ...compressedAudioArgs, "-y", chunkPath]);
       chunks.push({ path: chunkPath, index: plan.index, start: plan.start, end: plan.end });
     }
     return { chunks, directory };
   } catch (error) {
     await rm(directory, { recursive: true, force: true });
-    throw new Error(`Could not split the recording with FFmpeg: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Could not split and compress the recording with FFmpeg: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

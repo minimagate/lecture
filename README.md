@@ -12,6 +12,12 @@ npm run build
 npm link
 ```
 
+Install FFmpeg and ffprobe; transcription uses them to inspect duration and create temporary, speech-optimized audio:
+
+```bash
+brew install ffmpeg
+```
+
 Set the OpenRouter key in your shell environment, or create a `.env` file in the project root (it is ignored by git and loaded by the CLI, including when invoked outside the project directory):
 
 ```bash
@@ -19,11 +25,7 @@ export OPENROUTER_API_KEY="..."
 # Alternatively, put OPENROUTER_API_KEY=... in .env
 ```
 
-On macOS, add that line to `~/.zshrc` if it should be available in new terminals. Install FFmpeg for long recordings:
-
-```bash
-brew install ffmpeg
-```
+On macOS, add that line to `~/.zshrc` if it should be available in new terminals.
 
 ## First setup
 
@@ -47,7 +49,7 @@ Setup creates `Notes/`, `_transcripts/`, `_audio/`, `.obsidian/`, `.agents/`, an
 lecture transcribe
 ```
 
-Lecture discovers pending audio, transcribes it in Italian through OpenRouter, handles long recordings with the existing FFmpeg chunker, generates one Italian title and summary call, and writes a Markdown transcript under `_transcripts/<Course>/`.
+Lecture discovers pending audio, converts it to temporary mono 16 kHz MP3 audio at 32 kbps for transcription, splits long recordings into compressed chunks, generates one Italian title and summary call, and writes a Markdown transcript under `_transcripts/<Course>/`. Original recordings are left unchanged, and temporary audio is removed after transcription.
 
 Then run `lecture teach` to turn completed transcripts into detailed structured study notes under `Notes/<Course>/Lectures/`. It never modifies the source transcript or audio.
 
