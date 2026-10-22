@@ -1,16 +1,35 @@
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 
-export const DEFAULT_MODEL = "openai/whisper-large-v3-turbo";
+export const DEFAULT_MODEL = "openai/whisper-large-v3";
 const endpoint = "https://openrouter.ai/api/v1/audio/transcriptions";
 
 export type TranscriptionResult = { text: string; model: string; cost?: number };
 
 export class OpenRouterRequestError extends Error {
-  constructor(public readonly status: number, message: string) {
+  constructor(public readonly status: number, message: string, public readonly retryAfter?: string) {
     super(`OpenRouter request failed (${status}): ${message}`);
     this.name = "OpenRouterRequestError";
   }
+}
+
+type ErrorPayload = {
+  error?: {
+    message?: unknown;
+    metadata?: {
+      provider_name?: unknown;
+      raw?: unknown;
+    };
+  };
+};
+
+function requestErrorMessage(payload: unknown, response: Response): string {
+  const error = payload && typeof payload === "object" ? (payload as ErrorPayload).error : undefined;
+  const message = typeof error?.message === "string" && error.message.trim() ? error.message.trim() : response.statusText;
+  const provider = typeof error?.metadata?.provider_name === "string" ? error.metadata.provider_name.trim() : "";
+  const raw = typeof error?.metadata?.raw === "string" ? error.metadata.raw.trim() : "";
+  const details = [provider && `provider: ${provider}`, raw && `details: ${raw}`].filter(Boolean).join("; ");
+  return details ? `${message} (${details})` : message;
 }
 
 export function parseResponse(payload: unknown): TranscriptionResult {
@@ -60,8 +79,9 @@ export async function transcribeAudio(filePath: string, format: string, model: s
     });
     const payload = await response.json().catch(() => undefined);
     if (!response.ok) {
-      const message = payload && typeof payload === "object" && "error" in payload && payload.error && typeof payload.error === "object" && "message" in payload.error ? String(payload.error.message) : response.statusText;
-      throw new OpenRouterRequestError(response.status, message);
+      const retryAfter = response.headers.get("retry-after") ?? undefined;
+      const message = retryAfter ? `${requestErrorMessage(payload, response)}; retry-after: ${retryAfter}` : requestErrorMessage(payload, response);
+      throw new OpenRouterRequestError(response.status, message, retryAfter);
     }
     return parseAudioResponse(payload);
   } catch (error) {

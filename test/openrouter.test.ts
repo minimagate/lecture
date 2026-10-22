@@ -16,6 +16,26 @@ test("rejects malformed or empty OpenRouter responses", () => {
   assert.throws(() => parseResponse({ choices: [{ message: { content: null } }] }), /no transcript text/);
 });
 
+test("preserves provider diagnostics for transcription rate limits", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "lecture-openrouter-"));
+  const audioPath = path.join(directory, "lecture.mp3");
+  await writeFile(audioPath, "fake audio");
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ error: { message: "Provider returned 429", code: 429, metadata: { provider_name: "Example Provider", raw: "temporarily rate-limited upstream" } } }), { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "30" } })) as typeof fetch;
+  try {
+    await assert.rejects(transcribeAudio(audioPath, "mp3", "model", "it", "test-key"), (error: unknown) => {
+      assert.equal(error instanceof Error, true);
+      assert.match((error as Error).message, /Provider returned 429/);
+      assert.match((error as Error).message, /provider: Example Provider/);
+      assert.match((error as Error).message, /temporarily rate-limited upstream/);
+      assert.equal((error as { retryAfter?: string }).retryAfter, "30");
+      return true;
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("normalizes common non-Obsidian math wrappers in teaching notes", () => {
   const result = parseTeachingResponse({ choices: [{ message: { content: "```markdown\n# Limiti\n\n\\(a_n \\to L\\)\n\n```math\n\\lim_{n\\to\\infty} a_n = L\n```\n```" } }] });
   assert.equal(result.body, "# Limiti\n\n$a_n \\to L$\n\n$$\n\\lim_{n\\to\\infty} a_n = L\n$$");
@@ -26,7 +46,7 @@ test("does not rewrite math-looking text inside code and closes an unclosed fenc
   assert.equal(code.body, "## Esempio\n\n```python\nvalue = r'\\(not math\\)'\n```");
 });
 
-test("sends Whisper audio to the transcription endpoint as multipart form data", async () => {
+test("sends audio to the transcription endpoint as multipart form data", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "lecture-openrouter-"));
   const audioPath = path.join(directory, "lecture.m4a");
   await writeFile(audioPath, "fake audio");
@@ -34,18 +54,18 @@ test("sends Whisper audio to the transcription endpoint as multipart form data",
   let request: Request | undefined;
   globalThis.fetch = (async (input, init) => {
     request = new Request(input, init);
-    return new Response(JSON.stringify({ text: "  Trascrizione.  ", model: "openai/whisper-large-v3-turbo", usage: { cost: 0.01 } }), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ text: "  Trascrizione.  ", model: "openai/whisper-large-v3", usage: { cost: 0.01 } }), { status: 200, headers: { "Content-Type": "application/json" } });
   }) as typeof fetch;
   try {
-    const result = await transcribeAudio(audioPath, "m4a", "openai/whisper-large-v3-turbo", "it", "test-key");
-    assert.deepEqual(result, { text: "Trascrizione.", model: "openai/whisper-large-v3-turbo", cost: 0.01 });
+    const result = await transcribeAudio(audioPath, "m4a", "openai/whisper-large-v3", "it", "test-key");
+    assert.deepEqual(result, { text: "Trascrizione.", model: "openai/whisper-large-v3", cost: 0.01 });
   } finally {
     globalThis.fetch = originalFetch;
   }
   assert.equal(request?.url, "https://openrouter.ai/api/v1/audio/transcriptions");
   assert.equal(request?.method, "POST");
   const form = await request?.formData();
-  assert.equal(form?.get("model"), "openai/whisper-large-v3-turbo");
+  assert.equal(form?.get("model"), "openai/whisper-large-v3");
   assert.equal(form?.get("language"), "it");
   assert.equal((form?.get("file") as File)?.name, "lecture.m4a");
 });

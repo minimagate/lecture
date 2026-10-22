@@ -36,7 +36,7 @@ title: "Limiti di successioni"
 summary: "..."
 source_audio: "_audio/Analisi I/Recording 127.m4a"
 duration_seconds: 3600
-transcription_model: "openai/whisper-large-v3-turbo"
+transcription_model: "google/gemini-3.5-transcribe"
 metadata_model: "openai/gpt-5.6-luna"
 metadata_status: complete
 transcribed_at: "2026-09-21T10:00:00.000Z"

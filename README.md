@@ -35,7 +35,7 @@ lecture course add "Analisi I"
 lecture course add "Algebra"
 ```
 
-The default vault is `~/Documents/University`. A different vault can be selected with `lecture setup --path /path/to/University`. Open the resulting `University` folder directly in Obsidian.
+On macOS, the default vault is `iCloud Drive/Obsidian/University` (`~/Library/Mobile Documents/iCloud~md~obsidian/Documents/University`). Open that folder as a vault in Obsidian on your Mac or another Apple device. Keep iCloud Drive enabled on each device; on iPhone and iPad, the vault must be inside iCloud Drive's dedicated **Obsidian** folder. A different vault can be selected with `lecture setup --path /path/to/University`. On other platforms, the default remains `~/Documents/University`.
 
 Setup creates `Notes/`, `_transcripts/`, `_audio/`, `.obsidian/`, `.agents/`, and `AGENTS.md` without overwriting existing user files. It also enables the core Bases plugin and hides agent support files from normal Obsidian file views using the vault's standard settings. Adding a course places its `Transcriptions.base` view at the root of `_transcripts/<Course>/`.
 
@@ -85,7 +85,7 @@ For an advanced one-off transcription, use `lecture transcribe <audio-file>`. Th
 The defaults are:
 
 ```text
-Transcription: openai/whisper-large-v3-turbo
+Transcription: openai/whisper-large-v3
 Metadata:      openai/gpt-5.6-luna
 Teaching:      anthropic/claude-opus-5.5
 Language:      it

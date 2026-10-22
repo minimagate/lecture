@@ -10,7 +10,7 @@ export type AppConfig = {
   language: string;
 };
 
-export const DEFAULT_TRANSCRIPTION_MODEL = "openai/whisper-large-v3-turbo";
+export const DEFAULT_TRANSCRIPTION_MODEL = "openai/whisper-large-v3";
 export const DEFAULT_METADATA_MODEL = "openai/gpt-5.6-luna";
 export const DEFAULT_TEACHING_MODEL = "anthropic/claude-opus-5.5";
 
@@ -19,6 +19,7 @@ export function expandHome(value: string): string {
 }
 
 export function defaultVaultRoot(): string {
+  if (process.platform === "darwin") return path.join(os.homedir(), "Library", "Mobile Documents", "iCloud~md~obsidian", "Documents", "University");
   return path.join(os.homedir(), "Documents", "University");
 }
 
